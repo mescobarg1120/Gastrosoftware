@@ -9,7 +9,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import org.hibernate.annotations.CreationTimestamp;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -23,40 +22,37 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "employee")
-public class Employee {
+@Table(name = "attendance")
+public class Attendance {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
+    @JoinColumn(name = "employee_id", nullable = false)
+    private Employee employee;
+
+    @ManyToOne
     @JoinColumn(name = "branch_id", nullable = false)
     private Branch branch;
 
     @ManyToOne
-    @JoinColumn(name = "role_id", nullable = false)
-    private Role role;
+    @JoinColumn(name = "schedule_slot_id")
+    private WorkScheduleSlot scheduleSlot;
 
-    @Column(name = "full_name", nullable = false, length = 100)
-    private String fullName;
+    @Column(name = "check_in", nullable = false)
+    private LocalDateTime checkIn;
 
-    @Column(nullable = false, unique = true, length = 12)
-    private String rut;
+    @Column(name = "check_out")
+    private LocalDateTime checkOut;
 
-    @Column(nullable = false, unique = true, length = 100)
-    private String email;
+    @Column(name = "hours_worked", precision = 5, scale = 2)
+    private BigDecimal hoursWorked;
 
-    @Column(name = "password_hash", nullable = false, length = 255)
-    private String passwordHash;
+    @Column(name = "overtime_hours", nullable = false, precision = 5, scale = 2)
+    private BigDecimal overtimeHours;
 
-    @Column(name = "hourly_rate", precision = 10, scale = 2)
-    private BigDecimal hourlyRate;
-
-    @Column(nullable = false)
-    private Boolean active;
-
-    @CreationTimestamp
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @Column(nullable = false, length = 20)
+    private String status;
 }
