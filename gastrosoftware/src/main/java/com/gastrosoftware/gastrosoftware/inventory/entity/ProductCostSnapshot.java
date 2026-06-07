@@ -1,5 +1,6 @@
 package com.gastrosoftware.gastrosoftware.inventory.entity;
 
+import com.gastrosoftware.gastrosoftware.config.entity.Branch;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -14,35 +15,35 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "product")
-public class Product {
+@Table(name = "product_cost_snapshot")
+public class ProductCostSnapshot {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
 
-    @Column(nullable = false, length = 100)
-    private String name;
+    @ManyToOne
+    @JoinColumn(name = "recipe_id", nullable = false)
+    private Recipe recipe;
 
-    @Column(name = "product_type", nullable = false, length = 20)
-    private String productType;
+    @ManyToOne
+    @JoinColumn(name = "branch_id", nullable = false)
+    private Branch branch;
 
-    @Column(columnDefinition = "text")
-    private String description;
+    @Column(name = "total_cost", nullable = false, precision = 10, scale = 2)
+    private BigDecimal totalCost;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
-
-    @Column(nullable = false)
-    private Boolean available;
+    @Column(name = "calculated_at", nullable = false, updatable = false)
+    private LocalDateTime calculatedAt;
 }

@@ -1,13 +1,13 @@
 package com.gastrosoftware.gastrosoftware.inventory.repository;
 
-import com.gastrosoftware.gastrosoftware.inventory.entity.Recipe;
+import com.gastrosoftware.gastrosoftware.inventory.entity.Category;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 
 @Repository
-public interface RecipeRepository extends JpaRepository<Recipe, Long> {
+public interface CategoryRepository extends JpaRepository<Category, Long> {
 
-    List<Recipe> findByProductIdAndActive(Long productId, boolean active);
+    List<Category> findByActive(boolean active);
 }

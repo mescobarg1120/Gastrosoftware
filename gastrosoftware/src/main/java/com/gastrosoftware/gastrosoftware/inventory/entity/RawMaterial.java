@@ -1,5 +1,6 @@
 package com.gastrosoftware.gastrosoftware.inventory.entity;
 
+import com.gastrosoftware.gastrosoftware.config.entity.Branch;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -20,29 +21,32 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "product")
-public class Product {
+@Table(name = "raw_material")
+public class RawMaterial {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @JoinColumn(name = "branch_id", nullable = false)
+    private Branch branch;
 
     @Column(nullable = false, length = 100)
     private String name;
 
-    @Column(name = "product_type", nullable = false, length = 20)
-    private String productType;
+    @Column(nullable = false, length = 20)
+    private String unit;
 
-    @Column(columnDefinition = "text")
-    private String description;
+    @Column(name = "stock_qty", nullable = false, precision = 10, scale = 3)
+    private BigDecimal stockQty;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
+    @Column(name = "min_stock", nullable = false, precision = 10, scale = 3)
+    private BigDecimal minStock;
 
-    @Column(nullable = false)
-    private Boolean available;
+    @Column(name = "avg_unit_cost", nullable = false, precision = 10, scale = 2)
+    private BigDecimal avgUnitCost;
+
+    @Column(name = "last_unit_cost", nullable = false, precision = 10, scale = 2)
+    private BigDecimal lastUnitCost;
 }

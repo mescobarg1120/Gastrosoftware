@@ -20,29 +20,31 @@ import java.math.BigDecimal;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "product")
-public class Product {
+@Table(name = "recipe_item")
+public class RecipeItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @JoinColumn(name = "recipe_id", nullable = false)
+    private Recipe recipe;
 
-    @Column(nullable = false, length = 100)
-    private String name;
+    @Column(name = "ingredient_type", nullable = false, length = 20)
+    private String ingredientType;
 
-    @Column(name = "product_type", nullable = false, length = 20)
-    private String productType;
+    @ManyToOne
+    @JoinColumn(name = "material_id")
+    private RawMaterial material;
 
-    @Column(columnDefinition = "text")
-    private String description;
+    @ManyToOne
+    @JoinColumn(name = "sub_recipe_id")
+    private Recipe subRecipe;
 
-    @Column(nullable = false, precision = 10, scale = 2)
-    private BigDecimal price;
+    @Column(nullable = false, precision = 10, scale = 3)
+    private BigDecimal quantity;
 
-    @Column(nullable = false)
-    private Boolean available;
+    @Column(nullable = false, length = 20)
+    private String unit;
 }
