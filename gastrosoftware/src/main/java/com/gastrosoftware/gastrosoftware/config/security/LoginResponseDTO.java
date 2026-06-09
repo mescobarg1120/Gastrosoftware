@@ -16,5 +16,6 @@ public class LoginResponseDTO {
     private String email;
     private String role;
     private Long branchId;
+    private String fullName;
     private long expiresIn;
 }

@@ -29,23 +29,10 @@ public class AuthService {
     }
 
     public LoginResponseDTO login(LoginRequestDTO request) {
-        System.out.println(">>> AuthService.login — buscando email: " + request.getEmail());
+        Employee employee = employeeRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas"));
 
-        java.util.Optional<Employee> opt = employeeRepository.findByEmail(request.getEmail());
-        System.out.println(">>> AuthService.login — usuario encontrado: " + opt.isPresent());
-
-        Employee employee = opt.orElseThrow(() -> {
-            System.out.println(">>> AuthService.login — NO se encontró el email en BD");
-            return new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
-        });
-
-        System.out.println(">>> AuthService.login — password_hash desde BD: " + employee.getPasswordHash());
-        System.out.println(">>> AuthService.login — password recibido: " + request.getPassword());
-
-        boolean passwordMatch = passwordEncoder.matches(request.getPassword(), employee.getPasswordHash());
-        System.out.println(">>> AuthService.login — passwordMatch: " + passwordMatch);
-
-        if (!passwordMatch) {
+        if (!passwordEncoder.matches(request.getPassword(), employee.getPasswordHash())) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Credenciales inválidas");
         }
 
@@ -61,6 +48,7 @@ public class AuthService {
                 .email(employee.getEmail())
                 .role(employee.getRole().getName())
                 .branchId(employee.getBranch().getId())
+                .fullName(employee.getFullName())
                 .expiresIn(expiration)
                 .build();
     }
