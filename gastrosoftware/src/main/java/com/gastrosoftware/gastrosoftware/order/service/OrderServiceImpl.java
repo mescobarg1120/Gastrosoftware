@@ -42,42 +42,48 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderResponse createOrder(CreateOrderRequest request) {
-        Branch branch = branchRepository.findById(request.getBranchId())
-            .orElseThrow(() -> new ResourceNotFoundException("Branch", request.getBranchId()));
+        try {
+            Branch branch = branchRepository.findById(request.getBranchId())
+                .orElseThrow(() -> new ResourceNotFoundException("Branch", request.getBranchId()));
 
-        Employee employee = employeeRepository.findById(request.getEmployeeId())
-            .orElseThrow(() -> new ResourceNotFoundException("Employee", request.getEmployeeId()));
+            Employee employee = employeeRepository.findById(request.getEmployeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", request.getEmployeeId()));
 
-        OrderType orderType = orderTypeRepository.findById(request.getOrderTypeId())
-            .orElseThrow(() -> new ResourceNotFoundException("OrderType", request.getOrderTypeId()));
+            OrderType orderType = orderTypeRepository.findById(request.getOrderTypeId())
+                .orElseThrow(() -> new ResourceNotFoundException("OrderType", request.getOrderTypeId()));
 
-        OrderStatus pendingStatus = orderStatusRepository.findByName("PENDING")
-            .orElseThrow(() -> new ResourceNotFoundException("OrderStatus", "name", "PENDING"));
+            OrderStatus pendingStatus = orderStatusRepository.findByName("PENDING")
+                .orElseThrow(() -> new ResourceNotFoundException("OrderStatus", "name", "PENDING"));
 
-        Customer customer = Optional.ofNullable(request.getCustomerId())
-            .flatMap(customerRepository::findById)
-            .orElse(null);
+            Customer customer = Optional.ofNullable(request.getCustomerId())
+                .flatMap(customerRepository::findById)
+                .orElse(null);
 
-        var now = LocalDateTime.now();
+            var now = LocalDateTime.now();
 
-        Order order = Order.builder()
-            .branch(branch)
-            .employee(employee)
-            .customer(customer)
-            .orderType(orderType)
-            .orderStatus(pendingStatus)
-            .subtotal(BigDecimal.ZERO)
-            .discountAmount(BigDecimal.ZERO)
-            .platformCommission(BigDecimal.ZERO)
-            .total(BigDecimal.ZERO)
-            .createdAt(now)
-            .updatedAt(now)
-            .build();
+            Order order = Order.builder()
+                .branch(branch)
+                .employee(employee)
+                .customer(customer)
+                .orderType(orderType)
+                .orderStatus(pendingStatus)
+                .subtotal(BigDecimal.ZERO)
+                .discountAmount(BigDecimal.ZERO)
+                .platformCommission(BigDecimal.ZERO)
+                .total(BigDecimal.ZERO)
+                .createdAt(now)
+                .updatedAt(now)
+                .build();
 
-        order = orderRepository.save(order);
-        log.info("Order {} created with status PENDING", order.getId());
+            order = orderRepository.save(order);
+            log.info("Order {} created with status PENDING", order.getId());
 
-        return toResponse(order);
+            return toResponse(order);
+        } catch (Exception e) {
+            System.out.println(">>> ERROR en createOrder: " + e.getClass().getName() + " — " + e.getMessage());
+            e.printStackTrace();
+            throw e;
+        }
     }
 
     @Override

@@ -15,13 +15,13 @@ export default function DashboardPage() {
   const employee = useAuthStore((s) => s.employee);
 
   const { data: counts } = useQuery({
-    queryKey: ['dashboard'],
+    queryKey: ['dashboard', employee?.branchId],
     queryFn: async () => {
       const [ordersRes, productsRes, employeesRes, stockRes] = await Promise.allSettled([
         api.get('/api/orders'),
         api.get('/api/products'),
         api.get('/api/employees'),
-        api.get('/api/inventory/low-stock'),
+        api.get(`/api/inventory/branch/${employee?.branchId}/low-stock`),
       ]);
       return {
         activeOrders: ordersRes.status === 'fulfilled' ? ordersRes.value.data.length : 0,
