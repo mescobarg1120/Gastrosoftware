@@ -8,8 +8,10 @@ import com.gastrosoftware.gastrosoftware.customer.repository.CustomerRepository;
 import com.gastrosoftware.gastrosoftware.employee.entity.Employee;
 import com.gastrosoftware.gastrosoftware.employee.repository.EmployeeRepository;
 import com.gastrosoftware.gastrosoftware.inventory.entity.Product;
+import com.gastrosoftware.gastrosoftware.inventory.entity.ProductVariant;
 import com.gastrosoftware.gastrosoftware.inventory.entity.Recipe;
 import com.gastrosoftware.gastrosoftware.inventory.repository.ProductRepository;
+import com.gastrosoftware.gastrosoftware.inventory.repository.ProductVariantRepository;
 import com.gastrosoftware.gastrosoftware.inventory.repository.RecipeRepository;
 import com.gastrosoftware.gastrosoftware.order.dto.*;
 import com.gastrosoftware.gastrosoftware.order.entity.*;
@@ -37,6 +39,7 @@ public class OrderServiceImpl implements OrderService {
     private final CustomerRepository customerRepository;
     private final ProductRepository productRepository;
     private final RecipeRepository recipeRepository;
+    private final ProductVariantRepository productVariantRepository;
     private final OrderEventPublisher eventPublisher;
 
     @Override
@@ -101,12 +104,25 @@ public class OrderServiceImpl implements OrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Recipe", request.getRecipeId()));
         }
 
+        BigDecimal unitPrice = product.getPrice();
+        ProductVariant variant = null;
+
+        if (request.getVariantId() != null) {
+            variant = productVariantRepository.findById(request.getVariantId())
+                .orElseThrow(() -> new ResourceNotFoundException("ProductVariant", request.getVariantId()));
+            unitPrice = variant.getPrice();
+            if (variant.getRecipe() != null) {
+                recipe = variant.getRecipe();
+            }
+        }
+
         OrderItem item = OrderItem.builder()
             .order(order)
             .product(product)
             .recipe(recipe)
+            .productVariant(variant)
             .quantity(request.getQuantity())
-            .unitPrice(product.getPrice())
+            .unitPrice(unitPrice)
             .notes(request.getNotes())
             .build();
 
@@ -115,7 +131,7 @@ public class OrderServiceImpl implements OrderService {
         recalculateOrder(order);
 
         log.info("Item added to order {}: product={}, qty={}, price={}",
-            orderId, product.getName(), request.getQuantity(), product.getPrice());
+            orderId, product.getName(), request.getQuantity(), unitPrice);
 
         return toResponse(order);
     }
@@ -227,6 +243,7 @@ public class OrderServiceImpl implements OrderService {
             .productId(item.getProduct().getId())
             .productName(item.getProduct().getName())
             .recipeId(item.getRecipe() != null ? item.getRecipe().getId() : null)
+            .variantId(item.getProductVariant() != null ? item.getProductVariant().getId() : null)
             .quantity(item.getQuantity())
             .unitPrice(item.getUnitPrice())
             .subtotal(item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())))

@@ -19,6 +19,8 @@ public class AddItemRequest {
 
     private Long recipeId;
 
+    private Long variantId;
+
     @NotNull
     @Min(1)
     private Integer quantity;

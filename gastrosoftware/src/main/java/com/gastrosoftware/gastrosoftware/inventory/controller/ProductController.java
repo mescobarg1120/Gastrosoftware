@@ -1,7 +1,9 @@
 package com.gastrosoftware.gastrosoftware.inventory.controller;
 
 import com.gastrosoftware.gastrosoftware.inventory.dto.CreateProductDTO;
+import com.gastrosoftware.gastrosoftware.inventory.dto.CreateProductVariantDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.ProductResponseDTO;
+import com.gastrosoftware.gastrosoftware.inventory.dto.ProductVariantResponseDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.UpdateProductDTO;
 import com.gastrosoftware.gastrosoftware.inventory.entity.Category;
 import com.gastrosoftware.gastrosoftware.inventory.service.ProductService;
@@ -53,6 +55,17 @@ public class ProductController {
     @PatchMapping("/{id}/toggle")
     public ResponseEntity<ProductResponseDTO> toggleAvailability(@PathVariable Long id) {
         return ResponseEntity.ok(productService.toggleAvailability(id));
+    }
+
+    @GetMapping("/{productId}/variants")
+    public ResponseEntity<List<ProductVariantResponseDTO>> getProductVariants(@PathVariable Long productId) {
+        return ResponseEntity.ok(productService.getVariantsByProduct(productId));
+    }
+
+    @PostMapping("/{productId}/variants")
+    public ResponseEntity<ProductVariantResponseDTO> createProductVariant(
+            @PathVariable Long productId, @Valid @RequestBody CreateProductVariantDTO dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(productService.createVariant(productId, dto));
     }
 
     @GetMapping("/categories")

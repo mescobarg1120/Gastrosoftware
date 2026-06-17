@@ -33,6 +33,8 @@ export interface OrderItem {
   id: number;
   productId: number;
   productName: string;
+  recipeId?: number;
+  variantId?: number;
   quantity: number;
   unitPrice: number;
   subtotal: number;
@@ -99,6 +101,13 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+export interface ProductVariant {
+  id: number;
+  size: string;
+  price: number;
+  recipeId?: number;
+}
+
 export interface ProductResponse {
   id: number;
   name: string;
@@ -106,6 +115,7 @@ export interface ProductResponse {
   price: number;
   available: boolean;
   categoryName: string;
+  variants: ProductVariant[];
 }
 
 export interface CreateProductRequest {

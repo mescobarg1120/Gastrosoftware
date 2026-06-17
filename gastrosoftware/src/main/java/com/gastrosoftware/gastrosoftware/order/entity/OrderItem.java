@@ -1,6 +1,7 @@
 package com.gastrosoftware.gastrosoftware.order.entity;
 
 import com.gastrosoftware.gastrosoftware.inventory.entity.Product;
+import com.gastrosoftware.gastrosoftware.inventory.entity.ProductVariant;
 import com.gastrosoftware.gastrosoftware.inventory.entity.Recipe;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,6 +45,10 @@ public class OrderItem {
     @ManyToOne
     @JoinColumn(name = "recipe_id")
     private Recipe recipe;
+
+    @ManyToOne
+    @JoinColumn(name = "product_variant_id")
+    private ProductVariant productVariant;
 
     @Column(nullable = false)
     private Integer quantity;

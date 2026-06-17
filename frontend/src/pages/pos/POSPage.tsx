@@ -11,16 +11,25 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
+interface ProductVariant {
+  id: number;
+  size: string;
+  price: number;
+  recipeId?: number;
+}
+
 interface Product {
   id: number;
   name: string;
   price: number;
   categoryName: string;
   available: boolean;
+  variants: ProductVariant[];
 }
 
 interface OrderItem {
   product: Product;
+  variant?: ProductVariant;
   quantity: number;
 }
 
@@ -40,6 +49,8 @@ export default function POSPage() {
   const [amountReceived, setAmountReceived] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const [successOpen, setSuccessOpen] = useState(false);
+  const [variantModalOpen, setVariantModalOpen] = useState(false);
+  const [pendingProduct, setPendingProduct] = useState<Product | null>(null);
 
   const { data: products = [] } = useQuery({
     queryKey: ['products', employee?.branchId],
@@ -62,29 +73,46 @@ export default function POSPage() {
     }
   }, [categories, activeCategory]);
 
-  const addItem = (product: Product) => {
+  const addItemWithVariant = (product: Product, variant?: ProductVariant) => {
     setOrderItems((prev) => {
-      const existing = prev.find((i) => i.product.id === product.id);
+      const existing = prev.find(
+        (i) => i.product.id === product.id && i.variant?.id === variant?.id
+      );
       if (existing) {
         return prev.map((i) =>
-          i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i
+          i.product.id === product.id && i.variant?.id === variant?.id
+            ? { ...i, quantity: i.quantity + 1 }
+            : i
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [...prev, { product, variant, quantity: 1 }];
     });
   };
 
-  const updateQty = (productId: number, delta: number) => {
+  const addItem = (product: Product) => {
+    if (product.variants.length === 0) {
+      addItemWithVariant(product, undefined);
+    } else if (product.variants.length === 1) {
+      addItemWithVariant(product, product.variants[0]);
+    } else {
+      setPendingProduct(product);
+      setVariantModalOpen(true);
+    }
+  };
+
+  const updateQty = (productId: number, variantId: number | undefined, delta: number) => {
     setOrderItems((prev) =>
       prev
         .map((i) =>
-          i.product.id === productId ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i
+          i.product.id === productId && i.variant?.id === variantId
+            ? { ...i, quantity: Math.max(0, i.quantity + delta) }
+            : i
         )
         .filter((i) => i.quantity > 0)
     );
   };
 
-  const subtotal = orderItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
+  const subtotal = orderItems.reduce((sum, i) => sum + (i.variant?.price ?? i.product.price) * i.quantity, 0);
   const total = subtotal;
 
   const processPayment = useMutation({
@@ -118,11 +146,13 @@ export default function POSPage() {
       console.log('handleConfirmOrder: pedido creado, ID:', orderId);
 
       for (const item of orderItems) {
-        console.log('handleConfirmOrder: agregando item', { productId: item.product.id, quantity: item.quantity, unitPrice: item.product.price });
+        const unitPrice = item.variant?.price ?? item.product.price;
+        console.log('handleConfirmOrder: agregando item', { productId: item.product.id, variantId: item.variant?.id ?? null, quantity: item.quantity, unitPrice });
         await api.post(`/api/orders/${orderId}/items`, {
           productId: item.product.id,
+          variantId: item.variant?.id ?? null,
           quantity: item.quantity,
-          unitPrice: item.product.price,
+          unitPrice,
         });
       }
       console.log('handleConfirmOrder: todos los items agregados');
@@ -208,28 +238,34 @@ export default function POSPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {orderItems.map((item) => (
-                <div key={item.product.id} className="flex items-center justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{item.product.name}</p>
-                    <p className="text-xs text-muted-foreground">
-                      ${item.product.price.toLocaleString()} c/u
+              {orderItems.map((item) => {
+                const unitPrice = item.variant?.price ?? item.product.price;
+                const itemKey = `${item.product.id}-${item.variant?.id ?? 'base'}`;
+                return (
+                  <div key={itemKey} className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {item.product.name}{item.variant ? ` (${item.variant.size})` : ''}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        ${unitPrice.toLocaleString()} c/u
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button size="xs" variant="outline" onClick={() => updateQty(item.product.id, item.variant?.id, -1)}>
+                        −
+                      </Button>
+                      <span className="w-6 text-center text-sm font-medium text-foreground">{item.quantity}</span>
+                      <Button size="xs" variant="outline" onClick={() => updateQty(item.product.id, item.variant?.id, 1)}>
+                        +
+                      </Button>
+                    </div>
+                    <p className="text-sm font-semibold text-foreground w-16 text-right">
+                      ${(unitPrice * item.quantity).toLocaleString()}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <Button size="xs" variant="outline" onClick={() => updateQty(item.product.id, -1)}>
-                      −
-                    </Button>
-                    <span className="w-6 text-center text-sm font-medium text-foreground">{item.quantity}</span>
-                    <Button size="xs" variant="outline" onClick={() => updateQty(item.product.id, 1)}>
-                      +
-                    </Button>
-                  </div>
-                  <p className="text-sm font-semibold text-foreground w-16 text-right">
-                    ${(item.product.price * item.quantity).toLocaleString()}
-                  </p>
-                </div>
-              ))}
+                );
+              })}
               {orderItems.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-8">
                   Selecciona productos para agregar al pedido
@@ -331,6 +367,33 @@ export default function POSPage() {
               {processPayment.isPending ? 'Procesando...' : 'Procesar pago'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* VARIANT SELECTION DIALOG */}
+      <Dialog open={variantModalOpen} onOpenChange={(v) => { if (!v) setPendingProduct(null); setVariantModalOpen(v); }}>
+        <DialogContent className="sm:max-w-sm bg-card text-foreground">
+          <DialogHeader>
+            <DialogTitle>Seleccioná el tamaño</DialogTitle>
+            <DialogDescription>{pendingProduct?.name}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2 py-2">
+            {pendingProduct?.variants.map((v) => (
+              <Button
+                key={v.id}
+                variant="outline"
+                className="justify-between h-auto py-3 px-4"
+                onClick={() => {
+                  addItemWithVariant(pendingProduct!, v);
+                  setVariantModalOpen(false);
+                  setPendingProduct(null);
+                }}
+              >
+                <span>{v.size}</span>
+                <span className="font-bold">${v.price.toLocaleString()}</span>
+              </Button>
+            ))}
+          </div>
         </DialogContent>
       </Dialog>
 

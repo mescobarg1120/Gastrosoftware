@@ -1,24 +1,24 @@
 package com.gastrosoftware.gastrosoftware.inventory.dto;
 
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.util.List;
 
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class ProductResponseDTO {
+public class CreateProductVariantDTO {
+    @NotBlank
+    private String size;
 
-    private Long id;
-    private String name;
-    private String productType;
+    @NotNull
     private BigDecimal price;
-    private Boolean available;
-    private String categoryName;
-    private List<ProductVariantResponseDTO> variants;
+
+    private Long recipeId;
 }
