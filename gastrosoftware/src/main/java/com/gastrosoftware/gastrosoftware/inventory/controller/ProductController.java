@@ -3,6 +3,7 @@ package com.gastrosoftware.gastrosoftware.inventory.controller;
 import com.gastrosoftware.gastrosoftware.inventory.dto.CreateProductDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.ProductResponseDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.UpdateProductDTO;
+import com.gastrosoftware.gastrosoftware.inventory.entity.Category;
 import com.gastrosoftware.gastrosoftware.inventory.service.ProductService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
@@ -52,5 +53,10 @@ public class ProductController {
     @PatchMapping("/{id}/toggle")
     public ResponseEntity<ProductResponseDTO> toggleAvailability(@PathVariable Long id) {
         return ResponseEntity.ok(productService.toggleAvailability(id));
+    }
+
+    @GetMapping("/categories")
+    public ResponseEntity<List<Category>> getActiveCategories() {
+        return ResponseEntity.ok(productService.getActiveCategories());
     }
 }

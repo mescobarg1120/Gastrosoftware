@@ -81,6 +81,11 @@ public class ProductService {
         return toResponse(product);
     }
 
+    @Transactional(readOnly = true)
+    public List<Category> getActiveCategories() {
+        return categoryRepository.findByActive(true);
+    }
+
     private ProductResponseDTO toResponse(Product product) {
         return ProductResponseDTO.builder()
                 .id(product.getId())

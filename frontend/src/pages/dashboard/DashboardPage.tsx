@@ -18,9 +18,9 @@ export default function DashboardPage() {
     queryKey: ['dashboard', employee?.branchId],
     queryFn: async () => {
       const [ordersRes, productsRes, employeesRes, stockRes] = await Promise.allSettled([
-        api.get('/api/orders'),
+        api.get(`/api/orders/branch/${employee?.branchId}/active`),
         api.get('/api/products'),
-        api.get('/api/employees'),
+        api.get(`/api/employees/branch/${employee?.branchId}`),
         api.get(`/api/inventory/branch/${employee?.branchId}/low-stock`),
       ]);
       return {

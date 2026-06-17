@@ -2,10 +2,18 @@ package com.gastrosoftware.gastrosoftware.inventory.service;
 
 import com.gastrosoftware.gastrosoftware.config.entity.Branch;
 import com.gastrosoftware.gastrosoftware.config.repository.BranchRepository;
+import com.gastrosoftware.gastrosoftware.employee.entity.Employee;
+import com.gastrosoftware.gastrosoftware.employee.repository.EmployeeRepository;
+import com.gastrosoftware.gastrosoftware.inventory.dto.AdjustStockDTO;
+import com.gastrosoftware.gastrosoftware.inventory.dto.CreateRawMaterialDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.IngredientCostDTO;
+import com.gastrosoftware.gastrosoftware.inventory.dto.IntermediateStockResponseDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.ProductCostDTO;
+import com.gastrosoftware.gastrosoftware.inventory.dto.ProductionRequestDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.RawMaterialResponseDTO;
 import com.gastrosoftware.gastrosoftware.inventory.dto.StockVarianceDTO;
+import com.gastrosoftware.gastrosoftware.inventory.dto.UpdateRawMaterialDTO;
+import com.gastrosoftware.gastrosoftware.inventory.entity.IntermediateStock;
 import com.gastrosoftware.gastrosoftware.inventory.entity.ProductionLog;
 import com.gastrosoftware.gastrosoftware.inventory.entity.RawMaterial;
 import com.gastrosoftware.gastrosoftware.inventory.entity.Recipe;
@@ -40,8 +48,9 @@ public class InventoryService {
     private final IntermediateStockRepository intermediateStockRepository;
     private final BranchRepository branchRepository;
     private final ProductionLogRepository productionLogRepository;
+    private final EmployeeRepository employeeRepository;
 
-    public InventoryService(RawMaterialRepository rawMaterialRepository, RecipeRepository recipeRepository, RecipeItemRepository recipeItemRepository, StockMovementRepository stockMovementRepository, IntermediateStockRepository intermediateStockRepository, BranchRepository branchRepository, ProductionLogRepository productionLogRepository) {
+    public InventoryService(RawMaterialRepository rawMaterialRepository, RecipeRepository recipeRepository, RecipeItemRepository recipeItemRepository, StockMovementRepository stockMovementRepository, IntermediateStockRepository intermediateStockRepository, BranchRepository branchRepository, ProductionLogRepository productionLogRepository, EmployeeRepository employeeRepository) {
         this.rawMaterialRepository = rawMaterialRepository;
         this.recipeRepository = recipeRepository;
         this.recipeItemRepository = recipeItemRepository;
@@ -49,6 +58,7 @@ public class InventoryService {
         this.intermediateStockRepository = intermediateStockRepository;
         this.branchRepository = branchRepository;
         this.productionLogRepository = productionLogRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     @Transactional(readOnly = true)
@@ -56,6 +66,13 @@ public class InventoryService {
         return rawMaterialRepository.findByBranchId(branchId).stream()
                 .map(this::toRawMaterialResponse)
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public RawMaterialResponseDTO getRawMaterialById(Long id) {
+        RawMaterial material = rawMaterialRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("RawMaterial", id));
+        return toRawMaterialResponse(material);
     }
 
     @Transactional(readOnly = true)
@@ -83,6 +100,57 @@ public class InventoryService {
                 .movedAt(LocalDateTime.now())
                 .build();
         stockMovementRepository.save(movement);
+    }
+
+    public RawMaterialResponseDTO createRawMaterial(CreateRawMaterialDTO dto) {
+        Branch branch = branchRepository.findById(dto.getBranchId())
+                .orElseThrow(() -> new ResourceNotFoundException("Branch", dto.getBranchId()));
+
+        RawMaterial material = RawMaterial.builder()
+                .branch(branch)
+                .name(dto.getName())
+                .unit(dto.getUnit())
+                .stockQty(dto.getStockQty())
+                .minStock(dto.getMinStock())
+                .avgUnitCost(dto.getAvgUnitCost())
+                .lastUnitCost(dto.getAvgUnitCost())
+                .build();
+
+        material = rawMaterialRepository.save(material);
+        return toRawMaterialResponse(material);
+    }
+
+    public RawMaterialResponseDTO updateRawMaterial(Long id, UpdateRawMaterialDTO dto) {
+        RawMaterial material = rawMaterialRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("RawMaterial", id));
+
+        if (dto.getName() != null) material.setName(dto.getName());
+        if (dto.getUnit() != null) material.setUnit(dto.getUnit());
+        if (dto.getMinStock() != null) material.setMinStock(dto.getMinStock());
+        if (dto.getAvgUnitCost() != null) material.setAvgUnitCost(dto.getAvgUnitCost());
+
+        material = rawMaterialRepository.save(material);
+        return toRawMaterialResponse(material);
+    }
+
+    public RawMaterialResponseDTO adjustStock(Long id, AdjustStockDTO dto) {
+        RawMaterial material = rawMaterialRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("RawMaterial", id));
+
+        BigDecimal change = "ENTRADA".equals(dto.getType()) ? dto.getQuantity() : dto.getQuantity().negate();
+        material.setStockQty(material.getStockQty().add(change));
+        material = rawMaterialRepository.save(material);
+
+        StockMovement movement = StockMovement.builder()
+                .material(material)
+                .branch(material.getBranch())
+                .type(dto.getType())
+                .qtyChange(change)
+                .movedAt(LocalDateTime.now())
+                .build();
+        stockMovementRepository.save(movement);
+
+        return toRawMaterialResponse(material);
     }
 
     public void deductStockByRecipe(Long recipeId, int quantity, Long branchId, Long orderItemId) {
@@ -185,20 +253,134 @@ public class InventoryService {
                     .build());
         }
 
-        BigDecimal salePrice = recipe.getProduct().getPrice();
+        BigDecimal salePrice = recipe.getProduct() != null ? recipe.getProduct().getPrice() : BigDecimal.ZERO;
         BigDecimal grossMargin = salePrice.compareTo(BigDecimal.ZERO) > 0
                 ? salePrice.subtract(totalCost).divide(salePrice, 4, RoundingMode.HALF_UP)
                         .multiply(BigDecimal.valueOf(100)).setScale(2, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
         return ProductCostDTO.builder()
-                .productName(recipe.getProduct().getName())
+                .productName(recipe.getProduct() != null ? recipe.getProduct().getName() : recipe.getName())
                 .size(recipe.getSize())
                 .costPrice(totalCost)
                 .salePrice(salePrice)
                 .grossMargin(grossMargin)
                 .ingredients(ingredients)
                 .build();
+    }
+
+    @Transactional(readOnly = true)
+    public List<IntermediateStockResponseDTO> getIntermediateStocksByBranch(Long branchId) {
+        List<Recipe> recipes = recipeRepository.findByIsIntermediateTrueAndActiveTrue();
+
+        return recipes.stream().map(recipe -> {
+            IntermediateStock stock = intermediateStockRepository
+                    .findByRecipeIdAndBranchId(recipe.getId(), branchId)
+                    .orElse(null);
+
+            return IntermediateStockResponseDTO.builder()
+                    .id(stock != null ? stock.getId() : null)
+                    .recipeId(recipe.getId())
+                    .recipeName(recipe.getName())
+                    .stockQty(stock != null ? stock.getStockQty() : BigDecimal.ZERO)
+                    .unit(recipe.getYieldUnit() != null ? recipe.getYieldUnit() : "un")
+                    .lastProducedAt(stock != null ? stock.getProducedAt() : null)
+                    .build();
+        }).toList();
+    }
+
+    @Transactional
+    public void recordProduction(ProductionRequestDTO dto) {
+        Recipe recipe = recipeRepository.findById(dto.getRecipeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Recipe", dto.getRecipeId()));
+
+        Branch branch = branchRepository.findById(dto.getBranchId())
+                .orElseThrow(() -> new ResourceNotFoundException("Branch", dto.getBranchId()));
+
+        Employee employee = employeeRepository.findById(dto.getEmployeeId())
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", dto.getEmployeeId()));
+
+        List<RecipeItem> items = recipeItemRepository.findByRecipeId(recipe.getId());
+        BigDecimal qty = dto.getQuantityProduced();
+
+        for (RecipeItem item : items) {
+            BigDecimal totalQty = item.getQuantity().multiply(qty);
+
+            if ("RAW".equals(item.getIngredientType()) && item.getMaterial() != null) {
+                RawMaterial material = item.getMaterial();
+                material.setStockQty(material.getStockQty().subtract(totalQty));
+                rawMaterialRepository.save(material);
+
+                StockMovement movement = StockMovement.builder()
+                        .material(material)
+                        .branch(branch)
+                        .type("DEDUCT")
+                        .qtyChange(totalQty.negate())
+                        .movedAt(LocalDateTime.now())
+                        .build();
+                stockMovementRepository.save(movement);
+
+            } else if ("INTERMEDIATE".equals(item.getIngredientType()) && item.getSubRecipe() != null) {
+                intermediateStockRepository
+                        .findByRecipeIdAndBranchId(item.getSubRecipe().getId(), dto.getBranchId())
+                        .ifPresent(is -> {
+                            is.setStockQty(is.getStockQty().subtract(totalQty));
+                            intermediateStockRepository.save(is);
+                        });
+            }
+        }
+
+        IntermediateStock intermediateStock = intermediateStockRepository
+                .findByRecipeIdAndBranchId(recipe.getId(), dto.getBranchId())
+                .orElseGet(() -> IntermediateStock.builder()
+                        .recipe(recipe)
+                        .branch(branch)
+                        .stockQty(BigDecimal.ZERO)
+                        .unitCost(BigDecimal.ZERO)
+                        .producedAt(LocalDateTime.now())
+                        .build());
+
+        BigDecimal recipeCost = calculateRecipeCost(recipe.getId(), dto.getBranchId());
+        BigDecimal currentValue = intermediateStock.getStockQty().multiply(intermediateStock.getUnitCost());
+        BigDecimal newValue = qty.multiply(recipeCost);
+        BigDecimal newStock = intermediateStock.getStockQty().add(qty);
+        BigDecimal newUnitCost = newStock.compareTo(BigDecimal.ZERO) > 0
+                ? currentValue.add(newValue).divide(newStock, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        intermediateStock.setStockQty(newStock);
+        intermediateStock.setUnitCost(newUnitCost);
+        intermediateStock.setProducedAt(LocalDateTime.now());
+        intermediateStockRepository.save(intermediateStock);
+
+        ProductionLog log = ProductionLog.builder()
+                .recipe(recipe)
+                .branch(branch)
+                .employee(employee)
+                .qtyProduced(qty)
+                .producedAt(LocalDateTime.now())
+                .build();
+        productionLogRepository.save(log);
+    }
+
+    private BigDecimal calculateRecipeCost(Long recipeId, Long branchId) {
+        List<RecipeItem> items = recipeItemRepository.findByRecipeId(recipeId);
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (RecipeItem item : items) {
+            if ("RAW".equals(item.getIngredientType()) && item.getMaterial() != null) {
+                BigDecimal unitCost = item.getMaterial().getAvgUnitCost();
+                total = total.add(unitCost.multiply(item.getQuantity()));
+            } else if ("INTERMEDIATE".equals(item.getIngredientType()) && item.getSubRecipe() != null) {
+                var opt = intermediateStockRepository
+                        .findByRecipeIdAndBranchId(item.getSubRecipe().getId(), branchId);
+                if (opt.isPresent()) {
+                    BigDecimal cost = opt.get().getUnitCost().multiply(item.getQuantity());
+                    total = total.add(cost);
+                }
+            }
+        }
+        return total;
     }
 
     private RawMaterialResponseDTO toRawMaterialResponse(RawMaterial m) {

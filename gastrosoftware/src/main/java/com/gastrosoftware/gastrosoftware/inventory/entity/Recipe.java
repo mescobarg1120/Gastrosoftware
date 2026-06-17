@@ -32,7 +32,7 @@ public class Recipe {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "product_id", nullable = false)
+    @JoinColumn(name = "product_id")
     private Product product;
 
     @Column(nullable = false, length = 100)

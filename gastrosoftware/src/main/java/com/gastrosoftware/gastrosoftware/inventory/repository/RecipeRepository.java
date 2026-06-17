@@ -10,4 +10,6 @@ import java.util.List;
 public interface RecipeRepository extends JpaRepository<Recipe, Long> {
 
     List<Recipe> findByProductIdAndActive(Long productId, boolean active);
+
+    List<Recipe> findByIsIntermediateTrueAndActiveTrue();
 }
