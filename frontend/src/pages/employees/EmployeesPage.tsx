@@ -11,6 +11,7 @@ import {
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
 import api from '../../services/api';
+import { validateRut, formatRut } from '../../lib/rut';
 import { useAuthStore } from '../../store/authStore';
 import type { EmployeeResponse, CreateEmployeeRequest } from '../../types';
 
@@ -40,6 +41,7 @@ export default function EmployeesPage() {
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [rutError, setRutError] = useState('');
 
   const fetchEmployees = async () => {
     if (!employee?.branchId) return;
@@ -62,6 +64,10 @@ export default function EmployeesPage() {
 
   const handleCreate = async () => {
     if (!form.fullName || !form.rut || !form.email || !form.password || !form.roleId) return;
+    if (!validateRut(form.rut)) {
+      setRutError('RUT inválido');
+      return;
+    }
     setSubmitting(true);
     try {
       const body: CreateEmployeeRequest = {
@@ -73,9 +79,10 @@ export default function EmployeesPage() {
         password: form.password,
       };
       await api.post('/api/employees', body);
-      setDialogOpen(false);
-      setForm(emptyForm);
-      await fetchEmployees();
+                      setDialogOpen(false);
+                      setForm(emptyForm);
+                      setRutError('');
+                      await fetchEmployees();
     } catch (err) {
       console.error('Error al crear empleado:', err);
     } finally {
@@ -124,10 +131,14 @@ export default function EmployeesPage() {
                   <div>
                     <label className="block text-sm font-medium mb-1">RUT</label>
                     <input
-                      className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground"
+                      className={`w-full bg-slate-800 border rounded-md px-3 py-2 text-sm text-foreground ${rutError ? 'border-red-500' : 'border-slate-700'}`}
                       value={form.rut}
-                      onChange={(e) => setForm({ ...form, rut: e.target.value })}
+                      onChange={(e) => {
+                        setRutError('');
+                        setForm({ ...form, rut: formatRut(e.target.value) });
+                      }}
                     />
+                    {rutError && <p className="text-red-500 text-xs mt-1">{rutError}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Email</label>

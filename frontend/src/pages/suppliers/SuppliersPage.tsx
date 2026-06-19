@@ -11,6 +11,7 @@ import {
 import { Sidebar } from '../../components/layout/Sidebar';
 import { Header } from '../../components/layout/Header';
 import api from '../../services/api';
+import { validateRut, formatRut } from '../../lib/rut';
 import type { SupplierResponse, CreateSupplierRequest } from '../../types';
 
 interface SupplierForm {
@@ -39,6 +40,7 @@ export default function SuppliersPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<SupplierForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [rutError, setRutError] = useState('');
 
   const fetchSuppliers = async () => {
     try {
@@ -57,6 +59,10 @@ export default function SuppliersPage() {
 
   const handleCreate = async () => {
     if (!form.legalName || !form.rut) return;
+    if (!validateRut(form.rut)) {
+      setRutError('RUT inválido');
+      return;
+    }
     setSubmitting(true);
     try {
       const body: CreateSupplierRequest = {
@@ -69,8 +75,9 @@ export default function SuppliersPage() {
         paymentTerms: form.paymentTerms || undefined,
       };
       await api.post('/api/suppliers', body);
-      setDialogOpen(false);
-      setForm(emptyForm);
+                      setDialogOpen(false);
+                      setForm(emptyForm);
+                      setRutError('');
       await fetchSuppliers();
     } catch (err) {
       console.error('Error al crear proveedor:', err);
@@ -115,10 +122,14 @@ export default function SuppliersPage() {
                   <div>
                     <label className="block text-sm font-medium mb-1">RUT</label>
                     <input
-                      className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground"
+                      className={`w-full bg-slate-800 border rounded-md px-3 py-2 text-sm text-foreground ${rutError ? 'border-red-500' : 'border-slate-700'}`}
                       value={form.rut}
-                      onChange={(e) => setForm({ ...form, rut: e.target.value })}
+                      onChange={(e) => {
+                        setRutError('');
+                        setForm({ ...form, rut: formatRut(e.target.value) });
+                      }}
                     />
+                    {rutError && <p className="text-red-500 text-xs mt-1">{rutError}</p>}
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-1">Dirección</label>
@@ -132,6 +143,9 @@ export default function SuppliersPage() {
                     <label className="block text-sm font-medium mb-1">Días de entrega (lead time)</label>
                     <input
                       type="number"
+                      min={0}
+                      max={30}
+                      placeholder="Ej: 2"
                       className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground"
                       value={form.leadTimeDays}
                       onChange={(e) => setForm({ ...form, leadTimeDays: e.target.value })}
