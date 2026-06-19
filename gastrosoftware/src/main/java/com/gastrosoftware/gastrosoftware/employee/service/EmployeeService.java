@@ -93,6 +93,13 @@ public class EmployeeService {
         employeeRepository.save(employee);
     }
 
+    public void activateEmployee(Long id) {
+        Employee employee = employeeRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Employee", id));
+        employee.setActive(true);
+        employeeRepository.save(employee);
+    }
+
     public void changePassword(Long id, String newPassword) {
         Employee employee = employeeRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Employee", id));

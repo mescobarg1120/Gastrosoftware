@@ -14,6 +14,8 @@ import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 import type { EmployeeResponse, CreateEmployeeRequest } from '../../types';
 
+interface Role { id: number; name: string }
+
 interface EmployeeForm {
   fullName: string;
   rut: string;
@@ -37,6 +39,7 @@ export default function EmployeesPage() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState<EmployeeForm>(emptyForm);
   const [submitting, setSubmitting] = useState(false);
+  const [roles, setRoles] = useState<Role[]>([]);
 
   const fetchEmployees = async () => {
     if (!employee?.branchId) return;
@@ -50,9 +53,12 @@ export default function EmployeesPage() {
     }
   };
 
-  useEffect(() => {
-    fetchEmployees();
-  }, [employee?.branchId]);
+  const fetchRoles = async () => {
+    try { const res = await api.get('/api/roles'); setRoles(res.data ?? []); }
+    catch (err) { console.error('Error al cargar roles:', err); }
+  };
+
+  useEffect(() => { fetchEmployees(); fetchRoles(); }, [employee?.branchId]);
 
   const handleCreate = async () => {
     if (!form.fullName || !form.rut || !form.email || !form.password || !form.roleId) return;
@@ -77,12 +83,16 @@ export default function EmployeesPage() {
     }
   };
 
-  const handleDeactivate = async (id: number) => {
+  const handleToggleStatus = async (id: number, currentActive: boolean) => {
     try {
-      await api.delete(`/api/employees/${id}`);
-      setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, active: false } : e)));
+      if (currentActive) {
+        await api.patch(`/api/employees/${id}/deactivate`);
+      } else {
+        await api.patch(`/api/employees/${id}/activate`);
+      }
+      setEmployees((prev) => prev.map((e) => (e.id === id ? { ...e, active: !currentActive } : e)));
     } catch (err) {
-      console.error('Error al desactivar empleado:', err);
+      console.error('Error al cambiar estado del empleado:', err);
     }
   };
 
@@ -138,13 +148,17 @@ export default function EmployeesPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">ID Rol</label>
-                    <input
-                      type="number"
+                    <label className="block text-sm font-medium mb-1">Rol</label>
+                    <select
                       className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground"
                       value={form.roleId}
                       onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-                    />
+                    >
+                      <option value="">Seleccionar...</option>
+                      {roles.map((r) => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="flex justify-end gap-2 pt-2">
                     <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -178,8 +192,8 @@ export default function EmployeesPage() {
                 </thead>
                 <tbody>
                   {employees.map((e) => (
-                    <tr key={e.id} className="border-b border-slate-800 hover:bg-slate-800/50">
-                      <td className="py-3 px-4 text-foreground font-medium">{e.fullName}</td>
+                    <tr key={e.id} className={`border-b border-slate-800 hover:bg-slate-800/50 ${!e.active ? 'opacity-50' : ''}`}>
+                      <td className={`py-3 px-4 font-medium ${e.active ? 'text-foreground' : 'text-muted-foreground'}`}>{e.fullName}</td>
                       <td className="py-3 px-4 text-muted-foreground">{e.rut}</td>
                       <td className="py-3 px-4 text-muted-foreground">{e.email}</td>
                       <td className="py-3 px-4 text-muted-foreground">{e.role}</td>
@@ -189,15 +203,13 @@ export default function EmployeesPage() {
                         </Badge>
                       </td>
                       <td className="py-3 px-4">
-                        {e.active && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDeactivate(e.id)}
-                          >
-                            Desactivar
-                          </Button>
-                        )}
+                        <Button
+                          size="sm"
+                          variant={e.active ? 'outline' : 'secondary'}
+                          onClick={() => handleToggleStatus(e.id, e.active)}
+                        >
+                          {e.active ? 'Desactivar' : 'Activar'}
+                        </Button>
                       </td>
                     </tr>
                   ))}
