@@ -57,6 +57,13 @@ public class CustomerService {
     }
 
     @Transactional(readOnly = true)
+    public List<CustomerResponseDTO> getAllCustomers() {
+        return customerRepository.findAll().stream()
+                .map(this::toResponse)
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
     public CustomerResponseDTO getCustomerById(Long id) {
         Customer customer = customerRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", id));

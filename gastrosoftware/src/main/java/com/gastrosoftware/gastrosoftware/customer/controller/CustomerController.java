@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/api/customers")
 public class CustomerController {
@@ -23,6 +25,11 @@ public class CustomerController {
 
     public CustomerController(CustomerService customerService) {
         this.customerService = customerService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<CustomerResponseDTO>> getAllCustomers() {
+        return ResponseEntity.ok(customerService.getAllCustomers());
     }
 
     @PostMapping
