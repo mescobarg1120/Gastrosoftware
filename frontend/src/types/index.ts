@@ -115,6 +115,8 @@ export interface ProductResponse {
   price: number;
   available: boolean;
   categoryName: string;
+  categoryId?: number;
+  description?: string;
   variants: ProductVariant[];
 }
 
@@ -124,6 +126,14 @@ export interface CreateProductRequest {
   productType: string;
   description?: string;
   price: number;
+}
+
+export interface UpdateProductRequest {
+  name?: string;
+  productType?: string;
+  price?: number;
+  categoryId?: number;
+  description?: string;
 }
 
 export interface RawMaterialResponse {

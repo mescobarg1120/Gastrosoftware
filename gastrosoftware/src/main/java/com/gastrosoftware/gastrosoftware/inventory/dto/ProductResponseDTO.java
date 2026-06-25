@@ -20,5 +20,7 @@ public class ProductResponseDTO {
     private BigDecimal price;
     private Boolean available;
     private String categoryName;
+    private Long categoryId;
+    private String description;
     private List<ProductVariantResponseDTO> variants;
 }

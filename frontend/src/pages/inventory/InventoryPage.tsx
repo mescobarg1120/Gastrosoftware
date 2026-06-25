@@ -15,6 +15,7 @@ import type {
   ProductResponse,
   RawMaterialResponse,
   CreateProductRequest,
+  UpdateProductRequest,
   Category,
   IntermediateStockResponse,
   ProductionRequest,
@@ -35,9 +36,9 @@ const emptyMaterialForm = { name: '', unit: 'kg', stockQty: '', minStock: '', av
 const emptyAdjustForm = { type: 'ENTRADA', quantity: '', reason: '' };
 
 /* ───── ProductTable ───── */
-function ProductTable({ products, onToggle, onViewRecipes, loading }: {
+function ProductTable({ products, onToggle, onViewRecipes, onEdit, loading }: {
   products: ProductResponse[]; onToggle: (id: number) => void;
-  onViewRecipes: (p: ProductResponse) => void; loading: boolean;
+  onViewRecipes: (p: ProductResponse) => void; onEdit: (p: ProductResponse) => void; loading: boolean;
 }) {
   if (loading) return <p className="text-center text-muted-foreground py-8">Cargando productos...</p>;
   if (!products.length) return <p className="text-center text-muted-foreground py-8">No hay productos</p>;
@@ -61,6 +62,7 @@ function ProductTable({ products, onToggle, onViewRecipes, loading }: {
               <td className="py-3 px-4 text-muted-foreground">{p.categoryName}</td>
               <td className="py-3 px-4"><Badge variant={p.available ? 'default' : 'secondary'}>{p.available ? 'Sí' : 'No'}</Badge></td>
               <td className="py-3 px-4 flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => onEdit(p)}>Editar</Button>
                 <Button size="sm" variant="outline" onClick={() => onViewRecipes(p)}>Ver recetas</Button>
                 <Button size="sm" variant="outline" onClick={() => onToggle(p.id)}>{p.available ? 'Desactivar' : 'Activar'}</Button>
               </td>
@@ -521,6 +523,12 @@ export default function InventoryPage() {
   const [productForm, setProductForm] = useState(emptyProductForm);
   const [submitting, setSubmitting] = useState(false);
 
+  /* Edit product */
+  const [editProductOpen, setEditProductOpen] = useState(false);
+  const [editProduct, setEditProduct] = useState<ProductResponse | null>(null);
+  const [editProductForm, setEditProductForm] = useState(emptyProductForm);
+  const [editProductSubmitting, setEditProductSubmitting] = useState(false);
+
   /* Production form */
   const [productionDialogOpen, setProductionDialogOpen] = useState(false);
   const [productionRecipeId, setProductionRecipeId] = useState('');
@@ -594,6 +602,20 @@ export default function InventoryPage() {
       } as CreateProductRequest);
       setProductDialogOpen(false); setProductForm(emptyProductForm); fetchProducts();
     } catch (err) { console.error(err); } finally { setSubmitting(false); }
+  };
+  const handleUpdateProduct = async () => {
+    if (!editProduct || !editProductForm.name || !editProductForm.price || !editProductForm.categoryId) return;
+    setEditProductSubmitting(true);
+    try {
+      await api.put(`/api/products/${editProduct.id}`, {
+        name: editProductForm.name,
+        productType: editProductForm.productType,
+        price: Number(editProductForm.price),
+        categoryId: Number(editProductForm.categoryId),
+        description: editProductForm.description || undefined,
+      } as UpdateProductRequest);
+      setEditProductOpen(false); setEditProduct(null); setEditProductForm(emptyProductForm); fetchProducts();
+    } catch (err) { console.error(err); } finally { setEditProductSubmitting(false); }
   };
   const handleRecordProduction = async () => {
     if (!productionRecipeId || !productionQty || !employee?.branchId || !employee?.id) return;
@@ -692,8 +714,25 @@ export default function InventoryPage() {
                     </div>
                   </DialogContent>
                 </Dialog>
+                {/* Edit product dialog */}
+                <Dialog open={editProductOpen} onOpenChange={setEditProductOpen}>
+                  <DialogContent className="sm:max-w-md bg-card text-foreground">
+                    <DialogHeader><DialogTitle>Editar producto</DialogTitle></DialogHeader>
+                    <div className="space-y-4">
+                      <div><label className="block text-sm font-medium mb-1">Nombre</label><input className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground" value={editProductForm.name} onChange={(e) => setEditProductForm({ ...editProductForm, name: e.target.value })} /></div>
+                      <div><label className="block text-sm font-medium mb-1">Tipo</label><select className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground" value={editProductForm.productType} onChange={(e) => setEditProductForm({ ...editProductForm, productType: e.target.value })}><option value="PREPARED">PREPARED</option><option value="SIMPLE">SIMPLE</option></select></div>
+                      <div><label className="block text-sm font-medium mb-1">Precio</label><input type="number" className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground" value={editProductForm.price} onChange={(e) => setEditProductForm({ ...editProductForm, price: e.target.value })} /></div>
+                      <div><label className="block text-sm font-medium mb-1">Categoría</label><select className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground" value={editProductForm.categoryId} onChange={(e) => setEditProductForm({ ...editProductForm, categoryId: e.target.value })}><option value="">Seleccionar...</option>{categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}</select></div>
+                      <div><label className="block text-sm font-medium mb-1">Descripción</label><textarea className="w-full bg-slate-800 border border-slate-700 rounded-md px-3 py-2 text-sm text-foreground" value={editProductForm.description} onChange={(e) => setEditProductForm({ ...editProductForm, description: e.target.value })} /></div>
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button variant="outline" onClick={() => { setEditProductOpen(false); setEditProduct(null); setEditProductForm(emptyProductForm); }}>Cancelar</Button>
+                        <Button onClick={handleUpdateProduct} disabled={editProductSubmitting}>{editProductSubmitting ? 'Guardando...' : 'Guardar'}</Button>
+                      </div>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
-              <ProductTable products={products} onToggle={handleToggle} onViewRecipes={setRecipeProduct} loading={loading} />
+              <ProductTable products={products} onToggle={handleToggle} onViewRecipes={setRecipeProduct} onEdit={(p) => { setEditProduct(p); setEditProductForm({ name: p.name, productType: p.productType, price: String(p.price), categoryId: String(p.categoryId ?? ''), description: p.description ?? '' }); setEditProductOpen(true); }} loading={loading} />
             </div>
           )}
 

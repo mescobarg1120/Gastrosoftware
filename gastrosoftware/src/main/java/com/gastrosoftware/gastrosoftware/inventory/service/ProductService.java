@@ -79,6 +79,7 @@ public class ProductService {
                     .orElseThrow(() -> new ResourceNotFoundException("Category", dto.getCategoryId()));
             product.setCategory(category);
         }
+        if (dto.getProductType() != null) product.setProductType(dto.getProductType());
 
         product = productRepository.save(product);
         return toResponse(product);
@@ -148,6 +149,8 @@ public class ProductService {
                 .price(product.getPrice())
                 .available(product.getAvailable())
                 .categoryName(product.getCategory().getName())
+                .categoryId(product.getCategory().getId())
+                .description(product.getDescription())
                 .variants(variants)
                 .build();
     }
