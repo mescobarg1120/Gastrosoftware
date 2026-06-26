@@ -9,6 +9,14 @@ import { Sidebar } from '../../components/layout/Sidebar';
 import api from '../../services/api';
 import { useAuthStore } from '../../store/authStore';
 
+function isFromToday(dateStr: string): boolean {
+  const d = new Date(dateStr);
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
+}
+
 interface OrderItemResponse {
   id: number;
   productId: number;
@@ -141,7 +149,10 @@ export default function KitchenPage() {
     if (!employee?.branchId) return;
     try {
       const res = await api.get(`/api/orders/branch/${employee.branchId}/active`);
-      setTickets(res.data ?? []);
+      const all: OrderResponse[] = res.data ?? [];
+      const filtered = all.filter((o) => isFromToday(o.createdAt));
+      filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setTickets(filtered);
     } catch (err) {
       console.error('Error al cargar tickets:', err);
     } finally {
@@ -188,6 +199,7 @@ export default function KitchenPage() {
         client.subscribe(`/topic/kitchen/${employee.branchId}`, (message) => {
           try {
             const updated: OrderResponse = JSON.parse(message.body);
+            if (!isFromToday(updated.createdAt)) return;
             setTickets((prev) => {
               const idx = prev.findIndex((t) => t.id === updated.id);
               if (idx >= 0) {

@@ -34,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -86,7 +87,10 @@ public class PaymentService {
 
         try {
             OrderResponse orderResponse = orderService.getOrderById(dto.getOrderId());
-            messagingTemplate.convertAndSend("/topic/kitchen/" + orderResponse.getBranchId(), orderResponse);
+            if (orderResponse.getCreatedAt() != null
+                    && orderResponse.getCreatedAt().toLocalDate().equals(LocalDate.now())) {
+                messagingTemplate.convertAndSend("/topic/kitchen/" + orderResponse.getBranchId(), orderResponse);
+            }
         } catch (Exception e) {
             log.warn("Error enviando WebSocket tras pago order {}: {}", dto.getOrderId(), e.getMessage());
         }
