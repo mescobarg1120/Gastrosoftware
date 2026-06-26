@@ -16,6 +16,8 @@ import com.gastrosoftware.gastrosoftware.inventory.repository.RecipeRepository;
 import com.gastrosoftware.gastrosoftware.order.dto.*;
 import com.gastrosoftware.gastrosoftware.order.entity.*;
 import com.gastrosoftware.gastrosoftware.order.repository.*;
+import com.gastrosoftware.gastrosoftware.payment.entity.Payment;
+import com.gastrosoftware.gastrosoftware.payment.repository.PaymentRepository;
 import com.gastrosoftware.gastrosoftware.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +43,7 @@ public class OrderServiceImpl implements OrderService {
     private final RecipeRepository recipeRepository;
     private final ProductVariantRepository productVariantRepository;
     private final OrderEventPublisher eventPublisher;
+    private final PaymentRepository paymentRepository;
 
     @Override
     @Transactional
@@ -63,6 +66,11 @@ public class OrderServiceImpl implements OrderService {
                 .orElse(null);
 
             var now = LocalDateTime.now();
+            var startOfDay = now.toLocalDate().atStartOfDay();
+            var endOfDay = now.toLocalDate().atTime(23, 59, 59, 999999999);
+            int dailyCount = orderRepository.countByBranchIdAndCreatedAtBetween(
+                branch.getId(), startOfDay, endOfDay);
+            int dailyOrderNumber = dailyCount + 1;
 
             Order order = Order.builder()
                 .branch(branch)
@@ -70,6 +78,7 @@ public class OrderServiceImpl implements OrderService {
                 .customer(customer)
                 .orderType(orderType)
                 .orderStatus(pendingStatus)
+                .dailyOrderNumber(dailyOrderNumber)
                 .subtotal(BigDecimal.ZERO)
                 .discountAmount(BigDecimal.ZERO)
                 .platformCommission(BigDecimal.ZERO)
@@ -179,6 +188,15 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<OrderResponse> getOrdersByBranchAndDateRange(Long branchId, LocalDateTime from, LocalDateTime to) {
+        List<Order> orders = orderRepository.findByBranchIdAndCreatedAtBetweenOrderByCreatedAtDesc(branchId, from, to);
+        return orders.stream()
+            .map(this::toResponse)
+            .toList();
+    }
+
+    @Override
     @Transactional
     public void cancelOrder(Long id) {
         Order order = orderRepository.findById(id)
@@ -216,11 +234,21 @@ public class OrderServiceImpl implements OrderService {
             ? order.getOrderItems().stream().map(this::toItemResponse).toList()
             : List.of();
 
+        String paymentMethod = null;
+        try {
+            Optional<Payment> payment = paymentRepository.findByOrderId(order.getId());
+            if (payment.isPresent() && payment.get().getPaymentMethod() != null) {
+                paymentMethod = payment.get().getPaymentMethod().getName();
+            }
+        } catch (Exception ignored) {}
+
         return OrderResponse.builder()
             .id(order.getId())
             .branchId(order.getBranch().getId())
             .employeeId(order.getEmployee().getId())
+            .employeeName(order.getEmployee().getFullName())
             .customerId(order.getCustomer() != null ? order.getCustomer().getId() : null)
+            .customerName(order.getCustomer() != null ? order.getCustomer().getFullName() : null)
             .orderTypeId(order.getOrderType().getId())
             .orderTypeName(order.getOrderType().getName())
             .orderStatusId(order.getOrderStatus().getId())
@@ -231,6 +259,9 @@ public class OrderServiceImpl implements OrderService {
             .platformCommission(order.getPlatformCommission())
             .total(order.getTotal())
             .externalOrderRef(order.getExternalOrderRef())
+            .dailyOrderNumber(order.getDailyOrderNumber())
+            .paymentMethod(paymentMethod)
+            .itemsCount(items.size())
             .createdAt(order.getCreatedAt())
             .updatedAt(order.getUpdatedAt())
             .items(items)

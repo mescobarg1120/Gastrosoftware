@@ -17,7 +17,9 @@ public class OrderResponse {
     private Long id;
     private Long branchId;
     private Long employeeId;
+    private String employeeName;
     private Long customerId;
+    private String customerName;
     private Long orderTypeId;
     private String orderTypeName;
     private Long orderStatusId;
@@ -28,6 +30,9 @@ public class OrderResponse {
     private BigDecimal platformCommission;
     private BigDecimal total;
     private String externalOrderRef;
+    private Integer dailyOrderNumber;
+    private String paymentMethod;
+    private Integer itemsCount;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<OrderItemResponse> items;

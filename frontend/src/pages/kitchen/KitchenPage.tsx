@@ -64,9 +64,9 @@ function TicketCard({
       <CardContent className="p-4 space-y-3">
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-bold text-foreground">
-              #{ticket.id}
-            </h3>
+              <h3 className="text-lg font-bold text-foreground">
+                #{ticket.dailyOrderNumber ?? ticket.id}
+              </h3>
             <p className="text-xs text-muted-foreground">
               {ticket.orderTypeName} · {elapsedText}
             </p>

@@ -13,6 +13,7 @@ export interface Order {
   id: number;
   branchId: number;
   employeeId: number;
+  employeeName?: string;
   customerId?: number;
   customerName?: string;
   orderTypeId: number;
@@ -24,9 +25,12 @@ export interface Order {
   discountAmount: number;
   platformCommission: number;
   total: number;
-  items: OrderItem[];
+  dailyOrderNumber?: number;
+  paymentMethod?: string;
+  itemsCount?: number;
   createdAt: string;
   updatedAt?: string;
+  items: OrderItem[];
 }
 
 export interface OrderItem {

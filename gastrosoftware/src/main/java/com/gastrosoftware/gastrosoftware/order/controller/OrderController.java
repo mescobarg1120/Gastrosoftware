@@ -18,8 +18,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -59,6 +61,15 @@ public class OrderController {
     @GetMapping("/branch/{branchId}/active")
     public ResponseEntity<List<OrderResponse>> getActiveOrders(@PathVariable Long branchId) {
         List<OrderResponse> response = orderService.getActiveOrders(branchId);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/branch/{branchId}/report")
+    public ResponseEntity<List<OrderResponse>> getOrdersReport(
+            @PathVariable Long branchId,
+            @RequestParam LocalDateTime from,
+            @RequestParam LocalDateTime to) {
+        List<OrderResponse> response = orderService.getOrdersByBranchAndDateRange(branchId, from, to);
         return ResponseEntity.ok(response);
     }
 

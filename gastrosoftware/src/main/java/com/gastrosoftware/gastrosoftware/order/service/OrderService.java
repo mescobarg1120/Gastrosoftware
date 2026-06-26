@@ -5,6 +5,7 @@ import com.gastrosoftware.gastrosoftware.order.dto.CreateOrderRequest;
 import com.gastrosoftware.gastrosoftware.order.dto.OrderResponse;
 import com.gastrosoftware.gastrosoftware.order.dto.UpdateStatusRequest;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 public interface OrderService {
@@ -18,6 +19,8 @@ public interface OrderService {
     OrderResponse getOrderById(Long id);
 
     List<OrderResponse> getActiveOrders(Long branchId);
+
+    List<OrderResponse> getOrdersByBranchAndDateRange(Long branchId, LocalDateTime from, LocalDateTime to);
 
     void cancelOrder(Long id);
 }

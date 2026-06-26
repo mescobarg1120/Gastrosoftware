@@ -44,6 +44,7 @@ export default function POSPage() {
   const [orderType, setOrderType] = useState('DINE_IN');
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [currentOrderId, setCurrentOrderId] = useState<number | null>(null);
+  const [currentDailyNumber, setCurrentDailyNumber] = useState<number | null>(null);
   const [paymentOpen, setPaymentOpen] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('CASH');
   const [amountReceived, setAmountReceived] = useState('');
@@ -143,7 +144,9 @@ export default function POSPage() {
         orderStatusId: 1,
       });
       const orderId = orderRes.data.id ?? orderRes.data.data?.id;
-      console.log('handleConfirmOrder: pedido creado, ID:', orderId);
+      const orderDailyNumber = orderRes.data.dailyOrderNumber;
+      console.log('handleConfirmOrder: pedido creado, ID:', orderId, 'daily:', orderDailyNumber);
+      setCurrentDailyNumber(orderDailyNumber);
 
       for (const item of orderItems) {
         const unitPrice = item.variant?.price ?? item.product.price;
@@ -169,6 +172,7 @@ export default function POSPage() {
   const resetOrder = () => {
     setOrderItems([]);
     setCurrentOrderId(null);
+    setCurrentDailyNumber(null);
     setAmountReceived('');
     setPaymentMethod('CASH');
   };
@@ -405,7 +409,7 @@ export default function POSPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             <h2 className="text-xl font-bold text-foreground">¡Pago procesado!</h2>
-            <p className="text-sm text-muted-foreground">Pedido #{currentOrderId}</p>
+            <p className="text-sm text-muted-foreground">Pedido #{currentDailyNumber ?? currentOrderId}</p>
             <p className="text-lg font-semibold text-foreground">Total cobrado: ${total.toLocaleString()}</p>
             {paymentMethod === 'CASH' && change > 0 && (
               <p className="text-sm text-green-500">Vuelto: ${change.toLocaleString()}</p>

@@ -91,6 +91,9 @@ public class Order {
     @Column(name = "external_order_ref", length = 100)
     private String externalOrderRef;
 
+    @Column(name = "daily_order_number")
+    private Integer dailyOrderNumber;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
