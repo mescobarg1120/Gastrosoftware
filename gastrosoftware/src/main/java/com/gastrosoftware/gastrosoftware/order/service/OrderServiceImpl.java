@@ -21,6 +21,7 @@ import com.gastrosoftware.gastrosoftware.payment.repository.PaymentRepository;
 import com.gastrosoftware.gastrosoftware.shared.exception.ResourceNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductVariantRepository productVariantRepository;
     private final OrderEventPublisher eventPublisher;
     private final PaymentRepository paymentRepository;
+    private final SimpMessagingTemplate messagingTemplate;
 
     @Override
     @Transactional
@@ -158,13 +160,23 @@ public class OrderServiceImpl implements OrderService {
         order.setUpdatedAt(LocalDateTime.now());
         order = orderRepository.save(order);
 
+        OrderResponse response = toResponse(order);
+
         if ("IN_PROGRESS".equals(newStatus.getName())) {
             eventPublisher.publishKitchenTicket(order);
         }
 
+        if ("IN_PROGRESS".equals(newStatus.getName()) || "PREPARING".equals(newStatus.getName()) || "READY".equals(newStatus.getName())) {
+            try {
+                messagingTemplate.convertAndSend("/topic/kitchen/" + order.getBranch().getId(), response);
+            } catch (Exception e) {
+                log.warn("Error enviando WebSocket para order {}: {}", orderId, e.getMessage());
+            }
+        }
+
         log.info("Order {} status updated to {}", orderId, newStatus.getName());
 
-        return toResponse(order);
+        return response;
     }
 
     @Override
@@ -180,7 +192,11 @@ public class OrderServiceImpl implements OrderService {
     @Transactional(readOnly = true)
     public List<OrderResponse> getActiveOrders(Long branchId) {
         List<String> excluded = List.of("DELIVERED", "CANCELLED");
-        List<Order> orders = orderRepository.findByBranchIdAndOrderStatusNameNotIn(branchId, excluded);
+        var now = LocalDateTime.now();
+        var startOfDay = now.toLocalDate().atStartOfDay();
+        var endOfDay = now.toLocalDate().atTime(23, 59, 59, 999999999);
+        List<Order> orders = orderRepository.findByBranchIdAndOrderStatusNameNotInAndCreatedAtBetween(
+                branchId, excluded, startOfDay, endOfDay);
 
         return orders.stream()
             .map(this::toResponse)

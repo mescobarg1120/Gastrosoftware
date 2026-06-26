@@ -4,7 +4,9 @@ import com.gastrosoftware.gastrosoftware.config.entity.Branch;
 import com.gastrosoftware.gastrosoftware.config.repository.BranchRepository;
 import com.gastrosoftware.gastrosoftware.employee.entity.Employee;
 import com.gastrosoftware.gastrosoftware.employee.repository.EmployeeRepository;
+import com.gastrosoftware.gastrosoftware.order.dto.OrderResponse;
 import com.gastrosoftware.gastrosoftware.order.entity.Order;
+import com.gastrosoftware.gastrosoftware.order.service.OrderService;
 import com.gastrosoftware.gastrosoftware.payment.dto.AddPettyCashDTO;
 import com.gastrosoftware.gastrosoftware.payment.dto.CashCountDetailDTO;
 import com.gastrosoftware.gastrosoftware.payment.dto.CloseShiftDTO;
@@ -24,6 +26,9 @@ import com.gastrosoftware.gastrosoftware.payment.repository.PaymentMethodReposit
 import com.gastrosoftware.gastrosoftware.payment.repository.PaymentRepository;
 import com.gastrosoftware.gastrosoftware.payment.repository.PettyCashRepository;
 import com.gastrosoftware.gastrosoftware.shared.exception.ResourceNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -36,6 +41,8 @@ import java.util.List;
 @Transactional
 public class PaymentService {
 
+    private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
+
     private final PaymentRepository paymentRepository;
     private final CashRegisterShiftRepository shiftRepository;
     private final CashCountDetailRepository countDetailRepository;
@@ -43,8 +50,10 @@ public class PaymentService {
     private final PaymentMethodRepository paymentMethodRepository;
     private final BranchRepository branchRepository;
     private final EmployeeRepository employeeRepository;
+    private final OrderService orderService;
+    private final SimpMessagingTemplate messagingTemplate;
 
-    public PaymentService(PaymentRepository paymentRepository, CashRegisterShiftRepository shiftRepository, CashCountDetailRepository countDetailRepository, PettyCashRepository pettyCashRepository, PaymentMethodRepository paymentMethodRepository, BranchRepository branchRepository, EmployeeRepository employeeRepository) {
+    public PaymentService(PaymentRepository paymentRepository, CashRegisterShiftRepository shiftRepository, CashCountDetailRepository countDetailRepository, PettyCashRepository pettyCashRepository, PaymentMethodRepository paymentMethodRepository, BranchRepository branchRepository, EmployeeRepository employeeRepository, OrderService orderService, SimpMessagingTemplate messagingTemplate) {
         this.paymentRepository = paymentRepository;
         this.shiftRepository = shiftRepository;
         this.countDetailRepository = countDetailRepository;
@@ -52,6 +61,8 @@ public class PaymentService {
         this.paymentMethodRepository = paymentMethodRepository;
         this.branchRepository = branchRepository;
         this.employeeRepository = employeeRepository;
+        this.orderService = orderService;
+        this.messagingTemplate = messagingTemplate;
     }
 
     public Payment processPayment(ProcessPaymentDTO dto) {
@@ -71,7 +82,16 @@ public class PaymentService {
                 .build();
 
         payment.getOrder().setId(dto.getOrderId());
-        return paymentRepository.save(payment);
+        payment = paymentRepository.save(payment);
+
+        try {
+            OrderResponse orderResponse = orderService.getOrderById(dto.getOrderId());
+            messagingTemplate.convertAndSend("/topic/kitchen/" + orderResponse.getBranchId(), orderResponse);
+        } catch (Exception e) {
+            log.warn("Error enviando WebSocket tras pago order {}: {}", dto.getOrderId(), e.getMessage());
+        }
+
+        return payment;
     }
 
     public ShiftResponseDTO openShift(OpenShiftDTO dto) {

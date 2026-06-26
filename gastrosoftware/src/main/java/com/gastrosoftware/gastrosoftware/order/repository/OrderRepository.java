@@ -16,6 +16,8 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
 
     List<Order> findByBranchIdAndOrderStatusNameNotIn(Long branchId, List<String> statusNames);
 
+    List<Order> findByBranchIdAndOrderStatusNameNotInAndCreatedAtBetween(Long branchId, List<String> statusNames, LocalDateTime from, LocalDateTime to);
+
     List<Order> findByBranchIdAndCreatedAtBetweenOrderByCreatedAtDesc(Long branchId, LocalDateTime from, LocalDateTime to);
 
     List<Order> findByCustomerId(Long customerId);

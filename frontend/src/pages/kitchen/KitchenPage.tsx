@@ -1,4 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Client } from '@stomp/stompjs';
+import SockJS from 'sockjs-client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -19,10 +21,12 @@ interface OrderItemResponse {
 
 interface OrderResponse {
   id: number;
+  dailyOrderNumber?: number;
   orderTypeName: string;
   orderStatusId: number;
   orderStatusName: string;
   orderStatusColor: string;
+  branchId: number;
   createdAt: string;
   items: OrderItemResponse[];
 }
@@ -124,38 +128,29 @@ function TicketCard({
   );
 }
 
+type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
+
 export default function KitchenPage() {
   const { employee } = useAuthStore();
   const [tickets, setTickets] = useState<OrderResponse[]>([]);
   const [loading, setLoading] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const stompRef = useRef<Client | null>(null);
 
-  const fetchTickets = async () => {
+  const fetchTickets = useCallback(async () => {
     if (!employee?.branchId) return;
     try {
-      console.log('📡 Fetching tickets branchId:', employee.branchId);
       const res = await api.get(`/api/orders/branch/${employee.branchId}/active`);
-      console.log('📥 Tickets recibidos:', res.data);
       setTickets(res.data ?? []);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Error al cargar tickets:', err);
-      if (err.response) {
-        console.error('   Status:', err.response.status);
-        console.error('   Body:', err.response.data);
-      }
     } finally {
       setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    fetchTickets();
-    const interval = setInterval(fetchTickets, 10000);
-    return () => clearInterval(interval);
   }, [employee?.branchId]);
 
   const updateStatus = async (orderId: number, statusId: number) => {
     console.log(`▶️ updateStatus llamado — orderId: ${orderId}, statusId: ${statusId}`);
-    console.log(`   PUT /api/orders/${orderId}/status  body:`, { orderStatusId: statusId });
     try {
       const response = await api.put(`/api/orders/${orderId}/status`, { orderStatusId: statusId });
       console.log('✅ PUT exitoso — status:', response.status, 'data:', response.data);
@@ -173,19 +168,56 @@ export default function KitchenPage() {
             : t
         )
       );
-      console.log('🔄 Estado local actualizado');
     } catch (err: any) {
       console.error('❌ Error al actualizar estado:', err);
-      if (err.response) {
-        console.error('   Status:', err.response.status);
-        console.error('   Body:', err.response.data);
-      } else if (err.request) {
-        console.error('   No se recibió respuesta del servidor');
-      } else {
-        console.error('   Error de configuración:', err.message);
-      }
     }
   };
+
+  /* WebSocket connection */
+  useEffect(() => {
+    if (!employee?.branchId) return;
+
+    fetchTickets();
+    setConnectionStatus('connecting');
+
+    const client = new Client({
+      webSocketFactory: () => new SockJS('http://localhost:8080/ws'),
+      reconnectDelay: 5000,
+      onConnect: () => {
+        setConnectionStatus('connected');
+        client.subscribe(`/topic/kitchen/${employee.branchId}`, (message) => {
+          try {
+            const updated: OrderResponse = JSON.parse(message.body);
+            setTickets((prev) => {
+              const idx = prev.findIndex((t) => t.id === updated.id);
+              if (idx >= 0) {
+                const next = [...prev];
+                next[idx] = updated;
+                return next;
+              }
+              return [updated, ...prev];
+            });
+          } catch (e) {
+            console.error('Error parsing WebSocket message:', e);
+          }
+        });
+      },
+      onDisconnect: () => {
+        setConnectionStatus('disconnected');
+      },
+      onStompError: () => {
+        setConnectionStatus('disconnected');
+      },
+    });
+
+    client.activate();
+    stompRef.current = client;
+
+    return () => {
+      client.deactivate();
+      stompRef.current = null;
+    };
+  }, [employee?.branchId, fetchTickets]);
 
   const pendingCount = tickets.filter(
     (t) => t.orderStatusName === 'PENDING' || t.orderStatusName === 'IN_PROGRESS'
@@ -200,7 +232,27 @@ export default function KitchenPage() {
             <h1 className="text-lg font-semibold text-foreground">Cocina</h1>
             <Badge variant="secondary">{pendingCount} pendientes</Badge>
           </div>
-          <p className="text-xs text-muted-foreground">Actualiza cada 10s</p>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1.5 text-xs">
+              <span
+                className={`inline-block size-2 rounded-full ${
+                  connectionStatus === 'connected'
+                    ? 'bg-green-500'
+                    : connectionStatus === 'connecting'
+                    ? 'bg-yellow-500 animate-pulse'
+                    : 'bg-red-500'
+                }`}
+              />
+              {connectionStatus === 'connected'
+                ? 'Conectado'
+                : connectionStatus === 'connecting'
+                ? 'Conectando...'
+                : 'Desconectado'}
+            </span>
+            <Button size="sm" variant="outline" onClick={fetchTickets}>
+              Refrescar
+            </Button>
+          </div>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4">
